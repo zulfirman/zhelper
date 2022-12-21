@@ -31,7 +31,7 @@ func Rs(c echo.Context, Ct map[string]interface{}) error {
 		if Ct["status"] == "" {
 			Return.Status = http.StatusText(Return.Code)
 		} else {
-			Return.Status = Ct["status"].(string)
+			Return.Status = fmt.Sprintf("%v", Ct["status"])
 		}
 	} else {
 		Return.Status = http.StatusText(Return.Code)
@@ -165,9 +165,6 @@ func IntString(result int) string {
 func StringInt(result string) int {
 	intVar, _ := strconv.Atoi(result)
 	return intVar
-}
-func TesGeneric[code int | string](myAge code) {
-	fmt.Println(myAge)
 }
 func Substr(input string, limit int) string {
 	if len([]rune(input)) >= limit {
