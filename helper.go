@@ -108,10 +108,10 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	code := resp.Status()
-	if code != "200" {
+	code := resp.StatusCode()
+	if code != 200 {
 		fmt.Println(resp.String())
-		err = errors.New("response code is " + code)
+		err = errors.New("response code is " + string(code))
 	}
 	return resp, err
 }
