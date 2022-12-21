@@ -116,6 +116,24 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 	return resp, err
 }
 
+func PostReq(Url string, token string, body interface{}) (*resty.Response, error) {
+	client := resty.New()
+	resp, err := client.R().EnableTrace().
+		SetAuthToken(token).
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(Url)
+	if err != nil {
+		fmt.Println(err)
+	}
+	code := resp.StatusCode()
+	if code != 200 {
+		fmt.Println(resp.String())
+		err = errors.New("response code is " + string(code))
+	}
+	return resp, err
+}
+
 func JsonToMap(jsonStr string) map[string]interface{} {
 	result := make(map[string]interface{})
 	err := json.Unmarshal([]byte(jsonStr), &result)
@@ -177,6 +195,32 @@ func Substr(input string, limit int) string {
 		input = input[0:limit]
 	}
 	return input
+}
+
+func ArrUniqueStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			if item == "" {
+				continue
+			}
+			list = append(list, item)
+		}
+	}
+	return list
+}
+func ArrUniqueInt(intSlice []int) []int {
+	allKeys := make(map[int]bool)
+	list := []int{}
+	for _, item := range intSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }
 
 func UniqueId() string {
@@ -321,7 +365,6 @@ func PaginateInfo(paging model.Pagination, totalData int64) H {
 	}
 	return paginationInfo
 }
-
 func ToSnakeCase(camel string) string {
 	var buf bytes.Buffer
 	for _, c := range camel {
