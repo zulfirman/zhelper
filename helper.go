@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
@@ -106,6 +107,11 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 	resp, err := client.R().EnableTrace().SetAuthToken(token).Get(Url)
 	if err != nil {
 		fmt.Println(err)
+	}
+	code := resp.Status()
+	if code != "200" {
+		fmt.Println(resp.String())
+		err = errors.New("response code is " + code)
 	}
 	return resp, err
 }
