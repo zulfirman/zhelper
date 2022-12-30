@@ -1,4 +1,4 @@
-package model
+package zhelper
 
 type Pagination struct {
 	Limit  int    `json:"limit"`

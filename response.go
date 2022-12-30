@@ -1,4 +1,4 @@
-package model
+package zhelper
 
 type Response struct {
 	Code    int         `json:"code"`

@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/xid"
 	"github.com/thedevsaddam/gojsonq/v2"
-	"github.com/zulfirman/zhelper/model"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"log"
@@ -22,7 +21,7 @@ import (
 )
 
 func Rs(c echo.Context, Ct map[string]interface{}) error {
-	var Return model.Response
+	var Return Response
 	if KeyExists(Ct, "code") {
 		Return.Code = Ct["code"].(int)
 	} else {
@@ -293,7 +292,7 @@ func FailOnError(err error, msg string) {
 }
 
 // paginate helper
-func GetParamPagination(c echo.Context) model.Pagination {
+func GetParamPagination(c echo.Context) Pagination {
 	// Initializing default
 	limit := 15
 	page := 1
@@ -338,7 +337,7 @@ func GetParamPagination(c echo.Context) model.Pagination {
 	if limit > 100 {
 		limit = 100
 	}
-	return model.Pagination{
+	return Pagination{
 		Limit:  limit,
 		Page:   page,
 		Sort:   sort,
@@ -357,7 +356,7 @@ func Paginate(c echo.Context, qry *gorm.DB, total int64) (*gorm.DB, H) {
 	return qryData.Order(pagination.Sort), PaginateInfo(pagination, total)
 }
 
-func PaginateInfo(paging model.Pagination, totalData int64) H {
+func PaginateInfo(paging Pagination, totalData int64) H {
 	totalPages := math.Ceil(float64(totalData) / float64(paging.Limit))
 	paging.Page = paging.Page + 1
 	nextPage := paging.Page + 1
