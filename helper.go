@@ -70,15 +70,15 @@ func KeyExists(decoded map[string]interface{}, key string) bool {
 	return ok && val != nil
 }
 
-// H is a shortcut for map[string]interface{}
-type H map[string]interface{}
-
 func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]interface{} {
 	if err := c.Bind(&json); err != nil {
 		return nil
 	}
 	return json
 }
+
+// H is a shortcut for map[string]interface{}
+type H map[string]interface{}
 
 // MarshalXML allows type H to be used with xml.Marshal.
 func (h H) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
@@ -222,6 +222,20 @@ func ArrUniqueInt(intSlice []int) []int {
 	}
 	return list
 }
+func ArrUnique64(strSlice []int64) []int64 {
+	allKeys := make(map[int64]bool)
+	list := []int64{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			if item == 0 {
+				continue
+			}
+			list = append(list, item)
+		}
+	}
+	return list
+}
 
 func UniqueId() string {
 	guid := xid.New()
@@ -329,6 +343,7 @@ func GetParamPagination(c echo.Context) model.Pagination {
 		Page:   page,
 		Sort:   sort,
 		Search: c.QueryParam("search"),
+		Field:  c.QueryParam("field"),
 	}
 }
 
