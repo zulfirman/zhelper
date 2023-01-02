@@ -59,7 +59,7 @@ func RsSuccess(c echo.Context) error {
 
 func RsError(c echo.Context, code int, message interface{}) error {
 	return Rs(c, H{
-		"status":  code,
+		"code":    code,
 		"message": message,
 	})
 }
