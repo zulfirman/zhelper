@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/labstack/echo/v4 v4.9.1
+	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/rs/xid v1.4.0
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2
 	gorm.io/datatypes v1.1.0

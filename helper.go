@@ -1,13 +1,11 @@
 package zhelper
 
 import (
-	"bytes"
-	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/pquerna/ffjson/ffjson"
 	"github.com/rs/xid"
 	"github.com/thedevsaddam/gojsonq/v2"
 	"gorm.io/datatypes"
@@ -17,7 +15,16 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+)
+
+var (
+	poolReq = &sync.Pool{
+		New: func() interface{} {
+			return resty.New()
+		},
+	}
 )
 
 func Rs(c echo.Context, Ct map[string]interface{}) error {
@@ -51,6 +58,14 @@ func Rs(c echo.Context, Ct map[string]interface{}) error {
 	return c.JSON(Return.Code, Return)
 }
 
+func KeyExists(decoded map[string]interface{}, key string) bool {
+	val, ok := decoded[key]
+	return ok && val != nil
+}
+
+// H is a shortcut for map[string]interface{}
+type H map[string]interface{}
+
 func RsSuccess(c echo.Context) error {
 	return Rs(c, H{
 		"content": "success",
@@ -64,11 +79,6 @@ func RsError(c echo.Context, code int, message interface{}) error {
 	})
 }
 
-func KeyExists(decoded map[string]interface{}, key string) bool {
-	val, ok := decoded[key]
-	return ok && val != nil
-}
-
 func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]interface{} {
 	if err := c.Bind(&json); err != nil {
 		return nil
@@ -76,33 +86,9 @@ func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]inter
 	return json
 }
 
-// H is a shortcut for map[string]interface{}
-type H map[string]interface{}
-
-// MarshalXML allows type H to be used with xml.Marshal.
-func (h H) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	start.Name = xml.Name{
-		Space: "",
-		Local: "map",
-	}
-	if err := e.EncodeToken(start); err != nil {
-		return err
-	}
-	for key, value := range h {
-		elem := xml.StartElement{
-			Name: xml.Name{Space: "", Local: key},
-			Attr: []xml.Attr{},
-		}
-		if err := e.EncodeElement(value, elem); err != nil {
-			return err
-		}
-	}
-
-	return e.EncodeToken(xml.EndElement{Name: start.Name})
-}
-
 func GetReq(Url string, token string) (*resty.Response, error) {
-	client := resty.New()
+	client := poolReq.Get().(*resty.Client)
+	defer poolReq.Put(client)
 	resp, err := client.R().EnableTrace().SetAuthToken(token).Get(Url)
 	if err != nil {
 		fmt.Println(err)
@@ -116,7 +102,8 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 }
 
 func PostReq(Url string, token string, body interface{}) (*resty.Response, error) {
-	client := resty.New()
+	client := poolReq.Get().(*resty.Client)
+	defer poolReq.Put(client)
 	resp, err := client.R().EnableTrace().
 		SetAuthToken(token).
 		SetHeader("Content-Type", "application/json").
@@ -135,15 +122,15 @@ func PostReq(Url string, token string, body interface{}) (*resty.Response, error
 
 func JsonToMap(jsonStr string) map[string]interface{} {
 	result := make(map[string]interface{})
-	err := json.Unmarshal([]byte(jsonStr), &result)
+	err := ffjson.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
 		return nil
 	}
 	return result
 }
 
-func MarshalBinary(i interface{}) (data []byte) { //bytes to json string
-	marshal, err := json.Marshal(i)
+func MarshalBinary(i interface{}) (data []byte) { //bytes to interface
+	marshal, err := ffjson.Marshal(i)
 	if err != nil {
 		println(err.Error())
 	}
@@ -158,30 +145,30 @@ func ReadJson(jsonString string, path string) interface{} { //from json string t
 }
 
 func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
-	toJson, err := json.Marshal(obj)
+	// Marshal the object to JSON.
+	toJson, err := ffjson.Marshal(obj)
 	if err != nil {
 		return obj, err
 	}
+
+	// If no fields are specified, return the object as is.
 	if len(ignoreFields) == 0 {
 		return obj, nil
 	}
+
+	// Unmarshal the JSON to a map.
 	toMap := map[string]interface{}{}
-	json.Unmarshal(toJson, &toMap)
+	ffjson.Unmarshal(toJson, &toMap)
+
+	// Remove the specified fields from the map.
 	for _, field := range ignoreFields {
 		delete(toMap, field)
 	}
+
+	// Return the modified map.
 	return toMap, nil
 }
-func ErrorRoute(code int) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		/*Rs(w, r, H{
-			"status": code,
-			"content": H{
-				"Error": IntString(code) + " Not Found",
-			},
-		})*/
-	}
-}
+
 func IntString(result int) string {
 	return strconv.Itoa(result)
 }
@@ -197,43 +184,49 @@ func Substr(input string, limit int) string {
 }
 
 func ArrUniqueStr(strSlice []string) []string {
-	allKeys := make(map[string]bool)
-	list := []string{}
+	// Use a map to track the unique elements.
+	uniqueMap := make(map[string]bool)
 	for _, item := range strSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			if item == "" {
-				continue
-			}
-			list = append(list, item)
+		if item == "" {
+			// Skip empty strings.
+			continue
 		}
+		uniqueMap[item] = true
 	}
-	return list
+	// Convert the map keys to a slice.
+	uniqueSlice := make([]string, 0, len(uniqueMap))
+	for key := range uniqueMap {
+		uniqueSlice = append(uniqueSlice, key)
+	}
+	return uniqueSlice
 }
 func ArrUniqueInt(intSlice []int) []int {
-	allKeys := make(map[int]bool)
-	list := []int{}
+	uniqueMap := make(map[int]bool)
 	for _, item := range intSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
+		if item == 0 {
+			continue
 		}
+		uniqueMap[item] = true
 	}
-	return list
+	uniqueSlice := make([]int, 0, len(uniqueMap))
+	for key := range uniqueMap {
+		uniqueSlice = append(uniqueSlice, key)
+	}
+	return intSlice
 }
-func ArrUnique64(strSlice []int64) []int64 {
-	allKeys := make(map[int64]bool)
-	list := []int64{}
-	for _, item := range strSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			if item == 0 {
-				continue
-			}
-			list = append(list, item)
+func ArrUnique64(intSlice []int64) []int64 {
+	uniqueMap := make(map[int64]bool)
+	for _, item := range intSlice {
+		if item == 0 {
+			continue
 		}
+		uniqueMap[item] = true
 	}
-	return list
+	uniqueSlice := make([]int64, 0, len(uniqueMap))
+	for key := range uniqueMap {
+		uniqueSlice = append(uniqueSlice, key)
+	}
+	return intSlice
 }
 
 func UniqueId() string {
@@ -268,23 +261,17 @@ func DeletedAt() gorm.DeletedAt {
 		Valid: true,
 	}
 }
-func BlankString(stringText string) bool {
-	if stringText == "" {
-		return true
-	}
-	count := 0
-	for _, v := range stringText {
-		if v == ' ' {
-			count++
-		} else {
-			break
-		}
-	}
-	if count > 0 {
+func BlankString(s string) bool {
+	// return true if whitespace
+	// - The string cannot be empty.
+	// - The string cannot contain only spaces.
+	// - The string cannot start with a space.
+	if s == "" || strings.TrimSpace(s) == "" || strings.HasPrefix(s, " ") {
 		return true
 	}
 	return false
 }
+
 func FailOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err)
@@ -293,50 +280,47 @@ func FailOnError(err error, msg string) {
 
 // paginate helper
 func GetParamPagination(c echo.Context) Pagination {
-	// Initializing default
-	limit := 15
-	page := 1
-	//sort := `"DateAdded" asc`
-	sort := ""
-	asc := 1
+	// Get the query parameters from the request.
 	query := c.Request().URL.Query()
-	for key, value := range query {
-		queryValue := value[len(value)-1]
-		switch key {
-		case "limit":
-			limit, _ = strconv.Atoi(queryValue)
-			break
-		case "page":
-			page, _ = strconv.Atoi(queryValue)
-			break
-		case "sort":
-			sort = queryValue
-			break
-		case "asc":
-			asc, _ = strconv.Atoi(queryValue)
-			break
-		}
-	}
-	if page <= 1 { //page 0 or 1 means start from beginning
-		page = 0
-	}
-	if page > 1 {
-		page = page - 1
-	}
-	ascFinal := "desc"
-	if asc == 1 {
-		ascFinal = "asc"
-	}
-	if sort != "" {
-		sort = ToSnakeCase(sort)
-		sort = `"` + sort + `" ` + ascFinal
-	}
+
+	// Get the "limit", "page", "sort", and "asc" query parameters.
+	// If the parameter is not present, the default value is returned.
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	page, _ := strconv.Atoi(query.Get("page"))
+	sort := query.Get("sort")
+	asc, _ := strconv.Atoi(query.Get("asc"))
+
+	// If the limit is not set or is set to 0, use a default value of 15.
+	// If the limit is greater than 100, use a maximum value of 100.
 	if limit == 0 {
 		limit = 15
 	}
 	if limit > 100 {
 		limit = 100
 	}
+
+	// If the page is not set or is set to 1, use a default value of 0.
+	// Otherwise, decrement the page number by 1.
+	if page <= 1 {
+		page = 0
+	} else {
+		page--
+	}
+
+	// Set the sort order to "desc" by default.
+	// If the "asc" query parameter is set to 1, set the sort order to "asc".
+	ascFinal := "desc"
+	if asc == 1 {
+		ascFinal = "asc"
+	}
+
+	// If the "sort" query parameter is set, format it as `"field_name" order`.
+	if sort != "" {
+		sort = ToSnakeCase(sort)
+		sort = `"` + sort + `" ` + ascFinal
+	}
+
+	// Return the pagination parameters as a Pagination struct.
 	return Pagination{
 		Limit:  limit,
 		Page:   page,
@@ -357,29 +341,59 @@ func Paginate(c echo.Context, qry *gorm.DB, total int64) (*gorm.DB, H) {
 }
 
 func PaginateInfo(paging Pagination, totalData int64) H {
+	// Calculate the total number of pages.
 	totalPages := math.Ceil(float64(totalData) / float64(paging.Limit))
-	paging.Page = paging.Page + 1
+
+	// Calculate the next and previous page numbers.
 	nextPage := paging.Page + 1
-	if paging.Page < 1 {
-		paging.Page = 1
-	}
-	if paging.Page >= int(totalPages) {
+	if nextPage >= int(totalPages) {
 		nextPage = 0
 	}
 	previousPage := paging.Page - 1
 	if previousPage < 1 {
 		previousPage = 0
 	}
-	paginationInfo := H{
+
+	// Increment the current page number.
+	// If the current page is less than 1, set it to 1.
+	paging.Page++
+	if paging.Page < 1 {
+		paging.Page = 1
+	}
+
+	// Return the pagination information as a map.
+	return H{
 		"nextPage":     nextPage,
 		"previousPage": previousPage,
 		"currentPage":  paging.Page,
 		"totalPages":   totalPages,
 		"totalData":    totalData,
 	}
-	return paginationInfo
 }
+
 func ToSnakeCase(camel string) string {
+	// Preallocate a slice of bytes with enough capacity to hold the final string.
+	// This will avoid additional memory allocations and string copies when building the output string.
+	buf := make([]byte, 0, len(camel)+5)
+
+	// Iterate through the runes in the input string.
+	for i := 0; i < len(camel); i++ {
+		c := camel[i]
+		if c >= 'A' && c <= 'Z' {
+			// If the current rune is an uppercase letter, insert an underscore and convert it to lowercase.
+			if len(buf) > 0 {
+				buf = append(buf, '_')
+			}
+			buf = append(buf, c-'A'+'a')
+		} else {
+			// Otherwise, just append the current rune as is.
+			buf = append(buf, c)
+		}
+	}
+	return string(buf)
+}
+
+/*func ToSnakeCaseV1(camel string) string {
 	var buf bytes.Buffer
 	for _, c := range camel {
 		if 'A' <= c && c <= 'Z' {
@@ -393,6 +407,6 @@ func ToSnakeCase(camel string) string {
 		}
 	}
 	return buf.String()
-}
+}*/
 
 //end paginate helper
