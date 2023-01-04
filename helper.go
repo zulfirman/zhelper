@@ -326,7 +326,7 @@ func GetParamPagination(c echo.Context) Pagination {
 		Page:   page,
 		Sort:   sort,
 		Search: c.QueryParam("search"),
-		Field:  c.QueryParam("field"),
+		Field:  ToSnakeCase(c.QueryParam("field")),
 	}
 }
 
