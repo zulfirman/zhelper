@@ -68,7 +68,9 @@ type H map[string]interface{}
 
 func RsSuccess(c echo.Context) error {
 	return Rs(c, H{
-		"content": "success",
+		"content": H{
+			"message": "success",
+		},
 	})
 }
 
