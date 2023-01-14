@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-resty/resty/v2"
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/ffjson/ffjson"
 	"github.com/rs/xid"
@@ -13,6 +14,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -393,6 +395,23 @@ func ToSnakeCase(camel string) string {
 		}
 	}
 	return string(buf)
+}
+
+func Me(c echo.Context) map[string]interface{} { //check if token is valid then parse the token to struct
+	tokenString := c.Request().Header.Get("Authorization")
+	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+	claims := jwt.MapClaims{}
+	_, errClaim := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if jwt.SigningMethodHS256 != token.Method {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		secret := os.Getenv("JWT_SECRET")
+		return []byte(secret), nil
+	})
+	if errClaim != nil {
+		println(errClaim)
+	}
+	return claims["profile"].(map[string]interface{})
 }
 
 /*func ToSnakeCaseV1(camel string) string {
