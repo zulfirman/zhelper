@@ -176,10 +176,12 @@ func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
 func IntString(result int) string {
 	return strconv.Itoa(result)
 }
+
 func StringInt(result string) int {
 	intVar, _ := strconv.Atoi(result)
 	return intVar
 }
+
 func Substr(input string, limit int) string {
 	if len([]rune(input)) >= limit {
 		input = input[0:limit]
@@ -204,6 +206,7 @@ func ArrUniqueStr(strSlice []string) []string {
 	}
 	return uniqueSlice
 }
+
 func ArrUniqueInt(intSlice []int) []int {
 	uniqueMap := make(map[int]bool)
 	for _, item := range intSlice {
@@ -218,6 +221,7 @@ func ArrUniqueInt(intSlice []int) []int {
 	}
 	return intSlice
 }
+
 func ArrUnique64(intSlice []int64) []int64 {
 	uniqueMap := make(map[int64]bool)
 	for _, item := range intSlice {
@@ -265,6 +269,7 @@ func DeletedAt() gorm.DeletedAt {
 		Valid: true,
 	}
 }
+
 func BlankString(s string) bool {
 	// return true if whitespace
 	// - The string cannot be empty.
