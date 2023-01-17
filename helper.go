@@ -3,10 +3,10 @@ package zhelper
 import (
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
-	"github.com/pquerna/ffjson/ffjson"
 	"github.com/rs/xid"
 	"github.com/thedevsaddam/gojsonq/v2"
 	"gorm.io/datatypes"
@@ -126,7 +126,7 @@ func PostReq(Url string, token string, body interface{}) (*resty.Response, error
 
 func JsonToMap(jsonStr string) map[string]interface{} {
 	result := make(map[string]interface{})
-	err := ffjson.Unmarshal([]byte(jsonStr), &result)
+	err := sonic.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
 		return nil
 	}
@@ -134,7 +134,7 @@ func JsonToMap(jsonStr string) map[string]interface{} {
 }
 
 func MarshalBinary(i interface{}) (data []byte) { //bytes to interface
-	marshal, err := ffjson.Marshal(i)
+	marshal, err := sonic.Marshal(i)
 	if err != nil {
 		println(err.Error())
 	}
@@ -150,7 +150,7 @@ func ReadJson(jsonString string, path string) interface{} { //from json string t
 
 func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
 	// Marshal the object to JSON.
-	toJson, err := ffjson.Marshal(obj)
+	toJson, err := sonic.Marshal(obj)
 	if err != nil {
 		return obj, err
 	}
@@ -162,7 +162,7 @@ func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
 
 	// Unmarshal the JSON to a map.
 	toMap := map[string]interface{}{}
-	ffjson.Unmarshal(toJson, &toMap)
+	sonic.Unmarshal(toJson, &toMap)
 
 	// Remove the specified fields from the map.
 	for _, field := range ignoreFields {
