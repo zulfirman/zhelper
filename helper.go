@@ -416,7 +416,46 @@ func Me(c echo.Context) map[string]interface{} { //check if token is valid then 
 	if errClaim != nil {
 		println(errClaim)
 	}
-	return claims["profile"].(map[string]interface{})
+
+	ch := make(chan map[string]interface{})
+	go flattenJSON(claims, "", ch)
+	flattenedData := <-ch
+	return flattenedData
+}
+
+func flattenJSON(data map[string]interface{}, parentKey string, ch chan<- map[string]interface{}) {
+	for key, value := range data {
+		newKey := parentKey + key
+		if _, ok := value.(map[string]interface{}); ok {
+			ch := make(chan map[string]interface{})
+			go flattenJSON(value.(map[string]interface{}), newKey+".", ch)
+			flattenedData := <-ch
+			for k, v := range flattenedData {
+				data[k] = v
+			}
+			delete(data, key)
+		}
+	}
+	ch <- data
+}
+
+func HasTrustee(trusteeValue interface{}, values []string) bool {
+	arr := trusteeValue.([]interface{})
+	var found = false
+	for _, v := range arr {
+		if v, ok := v.(string); ok {
+			for _, value := range values {
+				if v == value {
+					found = true
+					break
+				}
+			}
+		}
+	}
+	if found {
+		return found
+	}
+	return found
 }
 
 /*func ToSnakeCaseV1(camel string) string {
