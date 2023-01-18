@@ -424,15 +424,30 @@ func Me(c echo.Context) map[string]interface{} { //check if token is valid then 
 }
 
 func flattenJSON(data map[string]interface{}, parentKey string, ch chan<- map[string]interface{}) {
+	// make a map to keep track of the keys that have been added
+	keys := make(map[string]bool)
+
 	for key, value := range data {
+		// construct the new key by concatenating the parent key and current key
 		newKey := parentKey + key
+
+		// check if the value is of type map[string]interface{}
 		if _, ok := value.(map[string]interface{}); ok {
+			// create a new channel for communicating with the nested function call
 			ch := make(chan map[string]interface{})
+			// recursively call the flattenJSON function for the nested map
 			go flattenJSON(value.(map[string]interface{}), newKey+".", ch)
 			flattenedData := <-ch
+
+			// iterate through the flattened data
 			for k, v := range flattenedData {
-				data[k] = v
+				// check if the key already exists in the data map
+				if !KeyExists(data, k) {
+					data[k] = v
+					keys[k] = true
+				}
 			}
+			// remove the nested map from the data map
 			delete(data, key)
 		}
 	}
