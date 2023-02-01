@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/bytedance/sonic v1.7.0
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/rs/xid v1.4.0
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2

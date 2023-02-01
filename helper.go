@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/xid"
 	"github.com/thedevsaddam/gojsonq/v2"
@@ -14,7 +14,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -410,7 +409,7 @@ func MeValidate(c echo.Context) (map[string]interface{}, error) { //check if tok
 		if jwt.SigningMethodHS256 != token.Method {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		secret := os.Getenv("JWT_SECRET")
+		secret := ""
 		return []byte(secret), nil
 	})
 	if errClaim != nil {
@@ -430,7 +429,7 @@ func Me(c echo.Context) (map[string]interface{}, error) { //parse jwt token
 		return nil, errors.New("cannot parse token")
 	}
 	payload, err := jwt.DecodeSegment(parts[1])
-	if err!=nil {
+	if err != nil {
 		return nil, errors.New("cannot parse token")
 	}
 	var claims map[string]interface{}
