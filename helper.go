@@ -402,7 +402,7 @@ func ToSnakeCase(camel string) string {
 	return string(buf)
 }
 
-func Me(c echo.Context) map[string]interface{} { //check if token is valid then parse the token to struct
+func MeValidate(c echo.Context) (map[string]interface{}, error) { //check if token is valid then parse the token to struct
 	tokenString := c.Request().Header.Get("Authorization")
 	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
 	claims := jwt.MapClaims{}
@@ -416,11 +416,26 @@ func Me(c echo.Context) map[string]interface{} { //check if token is valid then 
 	if errClaim != nil {
 		println(errClaim)
 	}
-
 	ch := make(chan map[string]interface{})
 	go flattenJSON(claims, "", ch)
 	flattenedData := <-ch
-	return flattenedData
+	return flattenedData, nil
+}
+
+func Me(c echo.Context) (map[string]interface{}, error) { //parse jwt token
+	tokenString := c.Request().Header.Get("Authorization")
+	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("cannot parse token")
+	}
+	payload, _ := jwt.DecodeSegment(parts[1])
+	var claims map[string]interface{}
+	sonic.Unmarshal(payload, &claims)
+	ch := make(chan map[string]interface{})
+	go flattenJSON(claims, "", ch)
+	flattenedData := <-ch
+	return flattenedData, nil
 }
 
 func flattenJSON(data map[string]interface{}, parentKey string, ch chan<- map[string]interface{}) {
