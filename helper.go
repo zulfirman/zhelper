@@ -1,6 +1,7 @@
 package zhelper
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
@@ -428,7 +429,7 @@ func Me(c echo.Context) (map[string]interface{}, error) { //parse jwt token
 	if len(parts) != 3 {
 		return nil, errors.New("cannot parse token")
 	}
-	payload, err := jwt.DecodeSegment(parts[1])
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		return nil, errors.New("cannot parse token")
 	}
