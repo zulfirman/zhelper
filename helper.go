@@ -429,7 +429,10 @@ func Me(c echo.Context) (map[string]interface{}, error) { //parse jwt token
 	if len(parts) != 3 {
 		return nil, errors.New("cannot parse token")
 	}
-	payload, _ := jwt.DecodeSegment(parts[1])
+	payload, err := jwt.DecodeSegment(parts[1])
+	if err!=nil {
+		return nil, errors.New("cannot parse token")
+	}
 	var claims map[string]interface{}
 	sonic.Unmarshal(payload, &claims)
 	ch := make(chan map[string]interface{})
