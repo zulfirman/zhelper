@@ -29,35 +29,13 @@ var (
 	}
 )
 
-func Rs(c echo.Context, Ct map[string]interface{}) error {
-	var Return Response
-	if KeyExists(Ct, "code") {
-		Return.Code = Ct["code"].(int)
-	} else {
-		Return.Code = 200
+func Rs(c echo.Context, result Response) error {
+	if result.Code == 0 {
+		result.Code = 200
 	}
-	if KeyExists(Ct, "status") {
-		if Ct["status"] == "" {
-			Return.Status = http.StatusText(Return.Code)
-		} else {
-			Return.Status = fmt.Sprintf("%v", Ct["status"])
-		}
-	} else {
-		Return.Status = http.StatusText(Return.Code)
-	}
-
-	if KeyExists(Ct, "content") {
-		Return.Content = Ct["content"]
-	} else {
-		Return.Content = nil
-	}
-	if KeyExists(Ct, "other") {
-		Return.Others = Ct["other"]
-	} else {
-		Return.Others = nil
-	}
-	Return.Path = Substr(c.Request().RequestURI, 150)
-	return c.JSON(Return.Code, Return)
+	result.Status = http.StatusText(result.Code)
+	result.Path = Substr(c.Request().RequestURI, 150)
+	return c.JSON(result.Code, result)
 }
 
 func KeyExists(decoded map[string]interface{}, key string) bool {
@@ -69,17 +47,17 @@ func KeyExists(decoded map[string]interface{}, key string) bool {
 type H map[string]interface{}
 
 func RsSuccess(c echo.Context) error {
-	return Rs(c, H{
-		"content": H{
+	return Rs(c, Response{
+		Content: H{
 			"message": "success",
 		},
 	})
 }
 
 func RsError(c echo.Context, code int, message interface{}) error {
-	return Rs(c, H{
-		"code":    code,
-		"message": message,
+	return Rs(c, Response{
+		Code:    code,
+		Content: message,
 	})
 }
 
@@ -506,5 +484,4 @@ func HasTrustee(trusteeValue interface{}, values []string) bool {
 	}
 	return buf.String()
 }*/
-
 //end paginate helper
