@@ -38,6 +38,18 @@ func Rs(c echo.Context, result Response) error {
 	return c.JSON(result.Code, result)
 }
 
+func RsMessage(c echo.Context, result Response) error {
+	if result.Code == 0 {
+		result.Code = 200
+	}
+	result.Content = H{
+		"message" : result.Content,
+	}
+	result.Status = http.StatusText(result.Code)
+	result.Path = Substr(c.Request().RequestURI, 150)
+	return c.JSON(result.Code, result)
+}
+
 func KeyExists(decoded map[string]interface{}, key string) bool {
 	val, ok := decoded[key]
 	return ok && val != nil
