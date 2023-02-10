@@ -38,12 +38,14 @@ func Rs(c echo.Context, result Response) error {
 	return c.JSON(result.Code, result)
 }
 
-func RsMessage(c echo.Context, result Response) error {
+func RsMessage(c echo.Context, code int, message interface{}) error {
+	var result Response
+	result.Code=code
 	if result.Code == 0 {
 		result.Code = 200
 	}
 	result.Content = H{
-		"message" : result.Content,
+		"message" : message,
 	}
 	result.Status = http.StatusText(result.Code)
 	result.Path = Substr(c.Request().RequestURI, 150)
