@@ -331,8 +331,7 @@ func GetParamPagination(c echo.Context) Pagination {
 	}
 }
 
-func Paginate(c echo.Context, qry *gorm.DB, total int64) (*gorm.DB, H) {
-	pagination := GetParamPagination(c)
+func Paginate(pagination Pagination, qry *gorm.DB, total int64) (*gorm.DB, H) {
 	offset := (pagination.Page) * pagination.Limit
 	qryData := qry.Limit(pagination.Limit).Offset(offset)
 	if pagination.Sort == "\"\" asc" {
