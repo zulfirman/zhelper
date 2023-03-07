@@ -190,52 +190,40 @@ func Substr(input string, limit int) string {
 	return input
 }
 
-func ArrUniqueStr(strSlice []string) []string {
-	// Use a map to track the unique elements.
-	uniqueMap := make(map[string]bool)
-	for _, item := range strSlice {
-		if item == "" {
-			// Skip empty strings.
-			continue
+func ArrUniqueStr(arr []string) []string {
+	encountered := map[string]struct{}{}
+	result := make([]string, 0, len(arr))
+	for _, val := range arr {
+		if _, ok := encountered[val]; !ok {
+			encountered[val] = struct{}{}
+			result = append(result, val)
 		}
-		uniqueMap[item] = true
 	}
-	// Convert the map keys to a slice.
-	uniqueSlice := make([]string, 0, len(uniqueMap))
-	for key := range uniqueMap {
-		uniqueSlice = append(uniqueSlice, key)
-	}
-	return uniqueSlice
+	return result
 }
 
-func ArrUniqueInt(intSlice []int) []int {
-	uniqueMap := make(map[int]bool)
-	for _, item := range intSlice {
-		if item == 0 {
-			continue
+func ArrUniqueInt(arr []int) []int {
+	encountered := map[int]struct{}{}
+	result := make([]int, 0, len(arr))
+	for _, val := range arr {
+		if _, ok := encountered[val]; !ok {
+			encountered[val] = struct{}{}
+			result = append(result, val)
 		}
-		uniqueMap[item] = true
 	}
-	uniqueSlice := make([]int, 0, len(uniqueMap))
-	for key := range uniqueMap {
-		uniqueSlice = append(uniqueSlice, key)
-	}
-	return intSlice
+	return result
 }
 
-func ArrUnique64(intSlice []int64) []int64 {
-	uniqueMap := make(map[int64]bool)
-	for _, item := range intSlice {
-		if item == 0 {
-			continue
+func ArrUnique64(arr []int64) []int64 {
+	encountered := map[int64]struct{}{}
+	result := make([]int64, 0, len(arr))
+	for _, val := range arr {
+		if _, ok := encountered[val]; !ok {
+			encountered[val] = struct{}{}
+			result = append(result, val)
 		}
-		uniqueMap[item] = true
 	}
-	uniqueSlice := make([]int64, 0, len(uniqueMap))
-	for key := range uniqueMap {
-		uniqueSlice = append(uniqueSlice, key)
-	}
-	return intSlice
+	return result
 }
 
 func UniqueId() string {
