@@ -482,6 +482,15 @@ func HasTrustee(trusteeValue interface{}, values []string) bool {
 	return found
 }
 
+func Includes(haystack []interface{}, needle interface{}) bool {
+	for _, sliceItem := range haystack {
+		if sliceItem == needle {
+			return true
+		}
+	}
+	return false
+}
+
 /*func ToSnakeCaseV1(camel string) string {
 	var buf bytes.Buffer
 	for _, c := range camel {
