@@ -165,12 +165,21 @@ func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
 	return toMap, nil
 }
 
-func IntString(result int) string {
-	return strconv.Itoa(result)
+func IntString(param int) string {
+	return strconv.Itoa(param)
 }
 
-func StringInt(result string) int {
-	intVar, _ := strconv.Atoi(result)
+func StringInt(param string) int {
+	intVar, _ := strconv.Atoi(param)
+	return intVar
+}
+
+func Int64String(param int64) string {
+	return strconv.FormatInt(param, 10)
+}
+
+func StringInt64(param string) int64 {
+	intVar, _ := strconv.ParseInt(param, 10, 64)
 	return intVar
 }
 
