@@ -357,9 +357,11 @@ func PaginateInfo(paging Pagination, totalData int64) H {
 	}
 
 	// Calculate the next and previous page numbers.
-	previousPage := pageDisplay - 1
-	if previousPage==0{
-		previousPage=1
+	previousPage := 0
+	if pageDisplay<2{
+		previousPage=0
+	}else{
+		previousPage = pageDisplay - 1
 	}
 
 	// Increment the current page number.
