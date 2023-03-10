@@ -341,14 +341,25 @@ func PaginateInfo(paging Pagination, totalData int64) H {
 	// Calculate the total number of pages.
 	totalPages := math.Ceil(float64(totalData) / float64(paging.Limit))
 
-	// Calculate the next and previous page numbers.
+	// Calculate the next page numbers.
 	nextPage := paging.Page + 1
-	if nextPage >= int(totalPages) {
+	if paging.Page>=1{
+		nextPage++
+	}else{
+		if paging.Page < 2 {
+			nextPage = 2
+		}
+	}
+
+	pageDisplay :=paging.Page+1
+	if pageDisplay >= int(totalPages) {
 		nextPage = 0
 	}
-	previousPage := paging.Page - 1
-	if previousPage < 1 {
-		previousPage = 0
+
+	// Calculate the next and previous page numbers.
+	previousPage := pageDisplay - 1
+	if previousPage==0{
+		previousPage=1
 	}
 
 	// Increment the current page number.
