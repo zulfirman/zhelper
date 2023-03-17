@@ -91,8 +91,8 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 	}
 	code := resp.StatusCode()
 	if code != 200 {
-		fmt.Println(resp.String())
-		err = errors.New("response code is " + string(code))
+		fmt.Println("request success but status code is "+IntString(code), resp.String())
+		err = errors.New("errCode")
 	}
 	return resp, err
 }
@@ -110,8 +110,8 @@ func PostReq(Url string, token string, body interface{}) (*resty.Response, error
 	}
 	code := resp.StatusCode()
 	if code != 200 {
-		fmt.Println(resp.String())
-		err = errors.New("response code is " + string(code))
+		fmt.Println("request success but status code is "+IntString(code), resp.String())
+		err = errors.New("errCode")
 	}
 	return resp, err
 }
