@@ -87,12 +87,12 @@ func GetReq(Url string, token string) (*resty.Response, error) {
 	defer poolReq.Put(client)
 	resp, err := client.R().EnableTrace().SetAuthToken(token).Get(Url)
 	if err != nil {
-		fmt.Println(err)
+		return resp, err
 	}
 	code := resp.StatusCode()
 	if code != 200 {
 		fmt.Println("request success but status code is "+IntString(code), resp.String())
-		err = errors.New("errCode")
+		return resp, errors.New("errCode")
 	}
 	return resp, err
 }
@@ -106,12 +106,12 @@ func PostReq(Url string, token string, body interface{}) (*resty.Response, error
 		SetBody(body).
 		Post(Url)
 	if err != nil {
-		fmt.Println(err)
+		return resp, err
 	}
 	code := resp.StatusCode()
 	if code != 200 {
 		fmt.Println("request success but status code is "+IntString(code), resp.String())
-		err = errors.New("errCode")
+		return resp, errors.New("errCode")
 	}
 	return resp, err
 }
