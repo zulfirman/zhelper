@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 var (
@@ -179,7 +180,16 @@ func Int64String(param int64) string {
 }
 
 func StringInt64(param string) int64 {
-	intVar, _ := strconv.ParseInt(param, 10, 64)
+	// remove everything except number
+	numBytes := make([]byte, 0, len(param))
+
+	for i := 0; i < len(param); i++ {
+		if unicode.IsDigit(rune(param[i])) {
+			numBytes = append(numBytes, param[i])
+		}
+	}
+
+	intVar, _ := strconv.ParseInt(string(numBytes), 10, 64)
 	return intVar
 }
 
