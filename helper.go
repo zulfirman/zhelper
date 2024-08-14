@@ -180,11 +180,13 @@ func Int64String(param int64) string {
 }
 
 func StringInt64(param string) int64 {
-	// remove everything except number
 	numBytes := make([]byte, 0, len(param))
 
 	for i := 0; i < len(param); i++ {
-		if unicode.IsDigit(rune(param[i])) {
+		// Include the '-' sign if it's the first character
+		if param[i] == '-' {
+			numBytes = append(numBytes, param[i])
+		} else if unicode.IsDigit(rune(param[i])) {
 			numBytes = append(numBytes, param[i])
 		}
 	}
