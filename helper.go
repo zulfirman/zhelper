@@ -1,12 +1,10 @@
 package zhelper
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/xid"
 	"github.com/thedevsaddam/gojsonq/v2"
@@ -30,6 +28,9 @@ var (
 	}
 )
 
+type H map[string]interface{}
+
+// Rs handles JSON responses with a status code and path
 func Rs(c echo.Context, result Response) error {
 	if result.Code == 0 {
 		result.Code = 200
@@ -39,43 +40,34 @@ func Rs(c echo.Context, result Response) error {
 	return c.JSON(result.Code, result)
 }
 
+// RsMessage returns a response with a custom message and code
 func RsMessage(c echo.Context, code int, message interface{}) error {
-	var result Response
-	result.Code=code
-	if result.Code == 0 {
-		result.Code = 200
+	result := Response{
+		Code: code,
+		Content: H{
+			"message": message,
+		},
 	}
-	result.Content = H{
-		"message" : message,
-	}
-	result.Status = http.StatusText(result.Code)
-	result.Path = Substr(c.Request().RequestURI, 150)
-	return c.JSON(result.Code, result)
+	return Rs(c, result)
 }
 
+// RsSuccess returns a generic success message
+func RsSuccess(c echo.Context) error {
+	return RsMessage(c, 200, "success")
+}
+
+// RsError returns a response with error details
+func RsError(c echo.Context, code int, message interface{}) error {
+	return RsMessage(c, code, message)
+}
+
+// KeyExists checks if a key exists in a decoded JSON map
 func KeyExists(decoded map[string]interface{}, key string) bool {
 	val, ok := decoded[key]
 	return ok && val != nil
 }
 
-// H is a shortcut for map[string]interface{}
-type H map[string]interface{}
-
-func RsSuccess(c echo.Context) error {
-	return Rs(c, Response{
-		Content: H{
-			"message": "success",
-		},
-	})
-}
-
-func RsError(c echo.Context, code int, message interface{}) error {
-	return Rs(c, Response{
-		Code:    code,
-		Content: message,
-	})
-}
-
+// ReadyBodyJson binds JSON data from request body to map
 func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]interface{} {
 	if err := c.Bind(&json); err != nil {
 		return nil
@@ -83,187 +75,124 @@ func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]inter
 	return json
 }
 
-func GetReq(Url string, token string) (*resty.Response, error) {
+// GetReq sends a GET request and checks for status code
+func GetReq(url, token string) (*resty.Response, error) {
 	client := poolReq.Get().(*resty.Client)
 	defer poolReq.Put(client)
-	resp, err := client.R().EnableTrace().SetAuthToken(token).Get(Url)
+
+	resp, err := client.R().EnableTrace().SetAuthToken(token).Get(url)
 	if err != nil {
 		return resp, err
 	}
-	code := resp.StatusCode()
-	if code != 200 {
-		fmt.Println("request success but status code is "+IntString(code), resp.String())
+	if resp.StatusCode() != 200 {
+		fmt.Printf("Request success but status code is %d: %s\n", resp.StatusCode(), resp.String())
 		return resp, errors.New("errCode")
 	}
 	return resp, err
 }
 
-func PostReq(Url string, token string, body interface{}) (*resty.Response, error) {
+// PostReq sends a POST request with an auth token and JSON body
+func PostReq(url, token string, body interface{}) (*resty.Response, error) {
 	client := poolReq.Get().(*resty.Client)
 	defer poolReq.Put(client)
-	resp, err := client.R().EnableTrace().
+
+	resp, err := client.R().
+		EnableTrace().
 		SetAuthToken(token).
 		SetHeader("Content-Type", "application/json").
 		SetBody(body).
-		Post(Url)
+		Post(url)
+
 	if err != nil {
 		return resp, err
 	}
-	code := resp.StatusCode()
-	if code != 200 {
-		fmt.Println("request success but status code is "+IntString(code), resp.String())
+	if resp.StatusCode() != 200 {
+		fmt.Printf("Request success but status code is %d: %s\n", resp.StatusCode(), resp.String())
 		return resp, errors.New("errCode")
 	}
 	return resp, err
 }
 
+// JsonToMap converts a JSON string to a map
 func JsonToMap(jsonStr string) map[string]interface{} {
-	result := make(map[string]interface{})
-	err := sonic.Unmarshal([]byte(jsonStr), &result)
-	if err != nil {
+	var result map[string]interface{}
+	if err := sonic.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil
 	}
 	return result
 }
 
-func MarshalBinary(i interface{}) (data []byte) { //bytes to interface
-	marshal, err := sonic.Marshal(i)
+// MarshalBinary serializes an object to a binary format
+func MarshalBinary(i interface{}) []byte {
+	data, err := sonic.Marshal(i)
 	if err != nil {
-		println(err.Error())
+		log.Printf("Error marshalling binary: %s", err.Error())
+		return nil
 	}
-	return marshal
+	return data
 }
 
-func ReadJson(jsonString string, path string) interface{} { //from json string to json
-	if path == "" {
-		return gojsonq.New().FromString(jsonString).Get()
+// ReadJson retrieves values from a JSON string with optional path
+func ReadJson(jsonString, path string) interface{} {
+	q := gojsonq.New().FromString(jsonString)
+	if path != "" {
+		return q.Find(path)
 	}
-	return gojsonq.New().FromString(jsonString).Find(path)
+	return q.Get()
 }
 
+// RemoveField removes specified fields from a JSON object
 func RemoveField(obj interface{}, ignoreFields ...string) (interface{}, error) {
-	// Marshal the object to JSON.
-	toJson, err := sonic.Marshal(obj)
+	jsonData, err := sonic.Marshal(obj)
 	if err != nil {
-		return obj, err
+		return nil, err
 	}
 
-	// If no fields are specified, return the object as is.
-	if len(ignoreFields) == 0 {
-		return obj, nil
+	var mapData map[string]interface{}
+	if err := sonic.Unmarshal(jsonData, &mapData); err != nil {
+		return nil, err
 	}
 
-	// Unmarshal the JSON to a map.
-	toMap := map[string]interface{}{}
-	sonic.Unmarshal(toJson, &toMap)
-
-	// Remove the specified fields from the map.
 	for _, field := range ignoreFields {
-		delete(toMap, field)
+		delete(mapData, field)
 	}
 
-	// Return the modified map.
-	return toMap, nil
+	return mapData, nil
 }
 
-func IntString(param int) string {
-	return strconv.Itoa(param)
-}
-
-func StringInt(param string) int {
-	intVar, _ := strconv.Atoi(param)
-	return intVar
-}
-
-func Int64String(param int64) string {
-	return strconv.FormatInt(param, 10)
-}
-
-func StringInt64(param string) int64 {
-	numBytes := make([]byte, 0, len(param))
-
-	for i := 0; i < len(param); i++ {
-		// Include the '-' sign if it's the first character
-		if param[i] == '-' {
-			numBytes = append(numBytes, param[i])
-		} else if unicode.IsDigit(rune(param[i])) {
-			numBytes = append(numBytes, param[i])
-		}
-	}
-
-	intVar, _ := strconv.ParseInt(string(numBytes), 10, 64)
-	return intVar
-}
-
+// Substr limits a string to a maximum length
 func Substr(input string, limit int) string {
-	if len([]rune(input)) >= limit {
-		input = input[0:limit]
+	if len([]rune(input)) > limit {
+		return input[:limit]
 	}
 	return input
 }
 
-func ArrUniqueStr(arr []string) []string {
-	encountered := map[string]struct{}{}
-	result := make([]string, 0, len(arr))
-	for _, val := range arr {
-		if _, ok := encountered[val]; !ok {
-			encountered[val] = struct{}{}
-			result = append(result, val)
-		}
-	}
-	return result
-}
-
-func ArrUniqueInt(arr []int) []int {
-	encountered := map[int]struct{}{}
-	result := make([]int, 0, len(arr))
-	for _, val := range arr {
-		if _, ok := encountered[val]; !ok {
-			encountered[val] = struct{}{}
-			result = append(result, val)
-		}
-	}
-	return result
-}
-
-func ArrUnique64(arr []int64) []int64 {
-	encountered := map[int64]struct{}{}
-	result := make([]int64, 0, len(arr))
-	for _, val := range arr {
-		if _, ok := encountered[val]; !ok {
-			encountered[val] = struct{}{}
-			result = append(result, val)
-		}
-	}
-	return result
-}
-
+// UniqueId generates a unique identifier using xid
 func UniqueId() string {
-	guid := xid.New()
-	return guid.String()
+	return xid.New().String()
 }
 
+// DateNow formats the current time in various formats
 func DateNow(typeFormat int) string {
-	timeNow := time.Now()
-	dateNow := time.Now().UTC()
-	if typeFormat == 1 { //date only
-		return dateNow.Format("2006-01-02")
+	switch typeFormat {
+	case 1:
+		return time.Now().UTC().Format("2006-01-02")
+	case 2:
+		return time.Now().Format("15:04:05")
+	case 3:
+		return time.Now().UTC().String()
+	default:
+		return ""
 	}
-	if typeFormat == 2 { //time only
-		return timeNow.Format("15:43:5")
-	}
-	if typeFormat == 3 { //datetime
-		return dateNow.String()
-	}
-	return ""
 }
 
+// GormTime converts a time object to GORM datatypes.Time
 func GormTime(timeParam time.Time) datatypes.Time {
-	timeOnly := timeParam.Format("15:04:05")
-	splitted := strings.Split(timeOnly, ":")
-	return datatypes.NewTime(StringInt(splitted[0]), StringInt(splitted[1]), StringInt(splitted[2]), 0)
+	return datatypes.NewTime(timeParam.Hour(), timeParam.Minute(), timeParam.Second(), 0)
 }
 
+// DeletedAt returns the current time as a valid GORM deleted timestamp
 func DeletedAt() gorm.DeletedAt {
 	return gorm.DeletedAt{
 		Time:  time.Now(),
@@ -271,66 +200,66 @@ func DeletedAt() gorm.DeletedAt {
 	}
 }
 
-func BlankString(s string) bool {
-	// return true if whitespace
-	// - The string cannot be empty.
-	// - The string cannot contain only spaces.
-	// - The string cannot start with a space.
-	if s == "" || strings.TrimSpace(s) == "" || strings.HasPrefix(s, " ") {
-		return true
-	}
-	return false
+// IntString converts an int to string
+func IntString(param int) string {
+	return strconv.Itoa(param)
 }
 
+// StringInt converts a string to int
+func StringInt(param string) int {
+	intVar, _ := strconv.Atoi(param)
+	return intVar
+}
+
+// Int64String converts an int64 to string
+func Int64String(param int64) string {
+	return strconv.FormatInt(param, 10)
+}
+
+// StringInt64 converts a string to int64
+func StringInt64(param string) int64 {
+	intVal, _ := strconv.ParseInt(param, 10, 64)
+	return intVal
+}
+
+// BlankString checks if a string is empty or consists only of whitespace
+func BlankString(s string) bool {
+	return strings.TrimSpace(s) == "" || strings.HasPrefix(s, " ")
+}
+
+// FailOnError logs a fatal error message
 func FailOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err)
 	}
 }
 
-// paginate helper
+// GetParamPagination extracts pagination parameters from query
 func GetParamPagination(c echo.Context) Pagination {
-	// Get the query parameters from the request.
-	query := c.Request().URL.Query()
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	sort := c.QueryParam("sort")
+	asc, _ := strconv.Atoi(c.QueryParam("asc"))
 
-	// Get the "limit", "page", "sort", and "asc" query parameters.
-	// If the parameter is not present, the default value is returned.
-	limit, _ := strconv.Atoi(query.Get("limit"))
-	page, _ := strconv.Atoi(query.Get("page"))
-	sort := query.Get("sort")
-	asc, _ := strconv.Atoi(query.Get("asc"))
-
-	// If the limit is not set or is set to 0, use a default value of 15.
-	// If the limit is greater than 100, use a maximum value of 100.
 	if limit == 0 {
 		limit = 15
 	}
 	if limit > 100 {
 		limit = 100
 	}
-
-	// If the page is not set or is set to 1, use a default value of 0.
-	// Otherwise, decrement the page number by 1.
 	if page <= 1 {
 		page = 0
 	} else {
 		page--
 	}
-
-	// Set the sort order to "desc" by default.
-	// If the "asc" query parameter is set to 1, set the sort order to "asc".
 	ascFinal := "desc"
 	if asc == 1 {
 		ascFinal = "asc"
 	}
-
-	// If the "sort" query parameter is set, format it as `"field_name" order`.
 	if sort != "" {
 		sort = ToSnakeCase(sort)
-		sort = `"` + sort + `" ` + ascFinal
+		sort = fmt.Sprintf(`"%s" %s`, sort, ascFinal)
 	}
-
-	// Return the pagination parameters as a Pagination struct.
 	return Pagination{
 		Limit:  limit,
 		Page:   page,
@@ -340,192 +269,48 @@ func GetParamPagination(c echo.Context) Pagination {
 	}
 }
 
+// Paginate handles pagination and returns the result and metadata
 func Paginate(pagination Pagination, qry *gorm.DB, total int64) (*gorm.DB, H) {
-	offset := (pagination.Page) * pagination.Limit
+	offset := pagination.Page * pagination.Limit
 	qryData := qry.Limit(pagination.Limit).Offset(offset)
-	if pagination.Sort == "\"\" asc" {
-		return qryData, PaginateInfo(pagination, total)
+	if pagination.Sort != "" {
+		qryData = qryData.Order(pagination.Sort)
 	}
-	return qryData.Order(pagination.Sort), PaginateInfo(pagination, total)
+	return qryData, PaginateInfo(pagination, total)
 }
 
+// PaginateInfo generates pagination metadata
 func PaginateInfo(paging Pagination, totalData int64) H {
-	// Calculate the total number of pages.
 	totalPages := math.Ceil(float64(totalData) / float64(paging.Limit))
-
-	// Calculate the next page numbers.
 	nextPage := paging.Page + 1
-	if paging.Page>=1{
-		nextPage++
-	}else{
-		if paging.Page < 2 {
-			nextPage = 2
-		}
-	}
-
-	pageDisplay :=paging.Page+1
-	if pageDisplay >= int(totalPages) {
+	if paging.Page >= int(totalPages)-1 {
 		nextPage = 0
 	}
-
-	// Calculate the next and previous page numbers.
-	previousPage := 0
-	if pageDisplay<2{
-		previousPage=0
-	}else{
-		previousPage = pageDisplay - 1
+	previousPage := paging.Page - 1
+	if previousPage < 0 {
+		previousPage = 0
 	}
-
-	// Increment the current page number.
-	// If the current page is less than 1, set it to 1.
-	paging.Page++
-	if paging.Page < 1 {
-		paging.Page = 1
-	}
-
-	// Return the pagination information as a map.
 	return H{
 		"nextPage":     nextPage,
 		"previousPage": previousPage,
-		"currentPage":  paging.Page,
+		"currentPage":  paging.Page + 1,
 		"totalPages":   totalPages,
 		"totalData":    totalData,
 	}
 }
 
+// ToSnakeCase converts camelCase to snake_case
 func ToSnakeCase(camel string) string {
-	// Preallocate a slice of bytes with enough capacity to hold the final string.
-	// This will avoid additional memory allocations and string copies when building the output string.
-	buf := make([]byte, 0, len(camel)+5)
-
-	// Iterate through the runes in the input string.
-	for i := 0; i < len(camel); i++ {
-		c := camel[i]
-		if c >= 'A' && c <= 'Z' {
-			// If the current rune is an uppercase letter, insert an underscore and convert it to lowercase.
-			if len(buf) > 0 {
-				buf = append(buf, '_')
+	var result []byte
+	for i, c := range camel {
+		if unicode.IsUpper(c) {
+			if i > 0 {
+				result = append(result, '_')
 			}
-			buf = append(buf, c-'A'+'a')
+			result = append(result, byte(unicode.ToLower(c)))
 		} else {
-			// Otherwise, just append the current rune as is.
-			buf = append(buf, c)
+			result = append(result, byte(c))
 		}
 	}
-	return string(buf)
+	return string(result)
 }
-
-func MeValidate(c echo.Context) (map[string]interface{}, error) { //check if token is valid then parse the token to struct
-	tokenString := c.Request().Header.Get("Authorization")
-	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
-	claims := jwt.MapClaims{}
-	_, errClaim := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if jwt.SigningMethodHS256 != token.Method {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		secret := ""
-		return []byte(secret), nil
-	})
-	if errClaim != nil {
-		println(errClaim)
-	}
-	ch := make(chan map[string]interface{})
-	go flattenJSON(claims, "", ch)
-	flattenedData := <-ch
-	return flattenedData, nil
-}
-
-func Me(c echo.Context) (map[string]interface{}, error) { //parse jwt token
-	tokenString := c.Request().Header.Get("Authorization")
-	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
-	parts := strings.Split(tokenString, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("cannot parse token")
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, errors.New("cannot parse token")
-	}
-	var claims map[string]interface{}
-	sonic.Unmarshal(payload, &claims)
-	ch := make(chan map[string]interface{})
-	go flattenJSON(claims, "", ch)
-	flattenedData := <-ch
-	return flattenedData, nil
-}
-
-func flattenJSON(data map[string]interface{}, parentKey string, ch chan<- map[string]interface{}) {
-	// make a map to keep track of the keys that have been added
-	keys := make(map[string]bool)
-
-	for key, value := range data {
-		// construct the new key by concatenating the parent key and current key
-		newKey := parentKey + key
-
-		// check if the value is of type map[string]interface{}
-		if _, ok := value.(map[string]interface{}); ok {
-			// create a new channel for communicating with the nested function call
-			ch := make(chan map[string]interface{})
-			// recursively call the flattenJSON function for the nested map
-			go flattenJSON(value.(map[string]interface{}), newKey+".", ch)
-			flattenedData := <-ch
-
-			// iterate through the flattened data
-			for k, v := range flattenedData {
-				// check if the key already exists in the data map
-				if !KeyExists(data, k) {
-					data[k] = v
-					keys[k] = true
-				}
-			}
-			// remove the nested map from the data map
-			delete(data, key)
-		}
-	}
-	ch <- data
-}
-
-func HasTrustee(trusteeValue interface{}, values []string) bool {
-	arr := trusteeValue.([]interface{})
-	var found = false
-	for _, v := range arr {
-		if v, ok := v.(string); ok {
-			for _, value := range values {
-				if v == value {
-					found = true
-					break
-				}
-			}
-		}
-	}
-	if found {
-		return found
-	}
-	return found
-}
-
-func Includes(haystack []interface{}, needle interface{}) bool {
-	for _, sliceItem := range haystack {
-		if sliceItem == needle {
-			return true
-		}
-	}
-	return false
-}
-
-/*func ToSnakeCaseV1(camel string) string {
-	var buf bytes.Buffer
-	for _, c := range camel {
-		if 'A' <= c && c <= 'Z' {
-			// just convert [A-Z] to _[a-z]
-			if buf.Len() > 0 {
-				buf.WriteRune('_')
-			}
-			buf.WriteRune(c - 'A' + 'a')
-		} else {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
-}*/
-//end paginate helper
