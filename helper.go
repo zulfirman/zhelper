@@ -314,12 +314,3 @@ func ToSnakeCase(camel string) string {
 	}
 	return string(result)
 }
-
-func Includes(haystack []interface{}, needle interface{}) bool {
-	for _, sliceItem := range haystack {
-		if sliceItem == needle {
-			return true
-		}
-	}
-	return false
-}
