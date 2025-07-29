@@ -248,9 +248,7 @@ func GetParamPagination(c echo.Context) Pagination {
 		limit = 100
 	}
 	if page <= 1 {
-		page = 0
-	} else {
-		page--
+		page = 1 // keep page 1 as default, no zero-based yet
 	}
 	ascFinal := "desc"
 	if asc == 1 {
@@ -262,7 +260,7 @@ func GetParamPagination(c echo.Context) Pagination {
 	}
 	return Pagination{
 		Limit:  limit,
-		Page:   page,
+		Page:   page, // keep as 1-based for clarity
 		Sort:   sort,
 		Search: c.QueryParam("search"),
 		Field:  ToSnakeCase(c.QueryParam("field")),
@@ -271,7 +269,8 @@ func GetParamPagination(c echo.Context) Pagination {
 
 // Paginate handles pagination and returns the result and metadata
 func Paginate(pagination Pagination, qry *gorm.DB, total int64) (*gorm.DB, H) {
-	offset := pagination.Page * pagination.Limit
+	// Convert to zero-based offset for the query
+	offset := (pagination.Page - 1) * pagination.Limit
 	qryData := qry.Limit(pagination.Limit).Offset(offset)
 	if pagination.Sort != "" {
 		qryData = qryData.Order(pagination.Sort)
@@ -281,20 +280,31 @@ func Paginate(pagination Pagination, qry *gorm.DB, total int64) (*gorm.DB, H) {
 
 // PaginateInfo generates pagination metadata
 func PaginateInfo(paging Pagination, totalData int64) H {
-	totalPages := math.Ceil(float64(totalData) / float64(paging.Limit))
-	nextPage := paging.Page + 1
-	if paging.Page >= int(totalPages)-1 {
-		nextPage = 0
+	totalPages := int(math.Ceil(float64(totalData) / float64(paging.Limit)))
+
+	currentPage := paging.Page
+	if currentPage < 1 {
+		currentPage = 1
 	}
-	previousPage := paging.Page - 1
-	if previousPage < 0 {
-		previousPage = 0
+	if currentPage > totalPages {
+		currentPage = totalPages
 	}
+
+	// Calculate next/previous safely
+	nextPage := 0
+	if currentPage < totalPages {
+		nextPage = currentPage + 1
+	}
+	previousPage := 0
+	if currentPage > 1 {
+		previousPage = currentPage - 1
+	}
+
 	return H{
 		"nextPage":     nextPage,
 		"previousPage": previousPage,
-		"currentPage":  paging.Page + 1,
-		"totalPages":   totalPages,
+		"currentPage":  currentPage,
+		"totalPages":   totalPages - 1,
 		"totalData":    totalData,
 	}
 }
