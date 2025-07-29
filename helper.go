@@ -306,7 +306,6 @@ func PaginateInfo(paging Pagination, totalData int64) H {
 	if previousPage<=0{
 		previousPage = 0
 	}
-	totalPages = totalPages - 1
 	if totalPages<0{
 		totalPages = 0
 	}
