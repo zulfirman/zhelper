@@ -299,7 +299,12 @@ func PaginateInfo(paging Pagination, totalData int64) H {
 	if currentPage > 1 {
 		previousPage = currentPage - 1
 	}
-
+	if nextPage==totalPages{
+		nextPage=0
+	}
+	if previousPage<=0{
+		previousPage = 0
+	}
 	return H{
 		"nextPage":     nextPage,
 		"previousPage": previousPage,
