@@ -241,74 +241,90 @@ func GetParamPagination(c echo.Context) Pagination {
 	sort := c.QueryParam("sort")
 	asc, _ := strconv.Atoi(c.QueryParam("asc"))
 
-	if limit == 0 {
+	// Default and boundary checks for limit
+	if limit <= 0 {
 		limit = 15
 	}
 	if limit > 100 {
 		limit = 100
 	}
-	if page <= 1 {
-		page = 1 // keep page 1 as default, no zero-based yet
+
+	// Default and boundary checks for page
+	if page <= 0 {
+		page = 1 // 1-based indexing for API clarity
 	}
-	ascFinal := "desc"
+
+	// Handle sorting direction
+	ascFinal := "DESC"
 	if asc == 1 {
-		ascFinal = "asc"
+		ascFinal = "ASC"
 	}
+
+	// Format sort query if provided
 	if sort != "" {
 		sort = ToSnakeCase(sort)
 		sort = fmt.Sprintf(`"%s" %s`, sort, ascFinal)
 	}
+
 	return Pagination{
 		Limit:  limit,
-		Page:   page, // keep as 1-based for clarity
+		Page:   page,
 		Sort:   sort,
 		Search: c.QueryParam("search"),
 		Field:  ToSnakeCase(c.QueryParam("field")),
 	}
 }
 
-// Paginate handles pagination and returns the result and metadata
+// Paginate handles pagination and returns the query and metadata
 func Paginate(pagination Pagination, qry *gorm.DB, total int64) (*gorm.DB, H) {
-	// Convert to zero-based offset for the query
+	// Ensure total is non-negative
+	if total < 0 {
+		total = 0
+	}
+
+	// Calculate offset (zero-based for database query)
 	offset := (pagination.Page - 1) * pagination.Limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Apply limit, offset, and sort to query
 	qryData := qry.Limit(pagination.Limit).Offset(offset)
 	if pagination.Sort != "" {
 		qryData = qryData.Order(pagination.Sort)
 	}
+
 	return qryData, PaginateInfo(pagination, total)
 }
 
 // PaginateInfo generates pagination metadata
-func PaginateInfo(paging Pagination, totalData int64) H {
-	totalPages := int(math.Ceil(float64(totalData) / float64(paging.Limit)))
+func PaginateInfo(pagination Pagination, totalData int64) H {
+	// Calculate total pages
+	totalPages := 0
+	if pagination.Limit > 0 {
+		totalPages = int(math.Ceil(float64(totalData) / float64(pagination.Limit)))
+	}
 
-	currentPage := paging.Page
+	// Ensure current page is within valid range
+	currentPage := pagination.Page
 	if currentPage < 1 {
 		currentPage = 1
 	}
-	if currentPage > totalPages {
+	if currentPage > totalPages && totalPages > 0 {
 		currentPage = totalPages
 	}
 
-	// Calculate next/previous safely
+	// Calculate next and previous pages
 	nextPage := 0
 	if currentPage < totalPages {
 		nextPage = currentPage + 1
 	}
+
 	previousPage := 0
 	if currentPage > 1 {
 		previousPage = currentPage - 1
 	}
 
-	if nextPage==totalPages{
-		nextPage=0
-	}
-	if previousPage<=0{
-		previousPage = 0
-	}
-	if totalPages<0{
-		totalPages = 0
-	}
 	return H{
 		"nextPage":     nextPage,
 		"previousPage": previousPage,
