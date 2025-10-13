@@ -349,3 +349,49 @@ func ToSnakeCase(camel string) string {
 	}
 	return string(result)
 }
+
+
+// BuildSearchQuery generates a SQL fragment with OR conditions for searching across multiple columns
+func BuildSearchQuery(columns []string, search string) (string, []interface{}) {
+	if search == "" || len(columns) == 0 {
+		return "", nil
+	}
+
+	// Build the OR conditions
+	var conditions []string
+	var args []interface{}
+	for range columns {
+		conditions = append(conditions, "?")
+		args = append(args, "%"+search+"%")
+	}
+
+	// Join conditions with OR and wrap in parentheses
+	query := "AND (" + strings.Join(columns, " ILIKE ? OR ") + " ILIKE ?)"
+	return query, args
+}
+
+// FormatColumnName converts a camelCase or PascalCase string to a space-separated, capitalized format (e.g., "dateOfBirth" to "Date Of Birth")
+func FormatColumnName(s string) string {
+	if s == "" {
+		return s
+	}
+
+	var result []string
+	currentWord := string(s[0])
+	for i := 1; i < len(s); i++ {
+		if unicode.IsUpper(rune(s[i])) {
+			result = append(result, currentWord)
+			currentWord = string(s[i])
+		} else {
+			currentWord += string(s[i])
+		}
+	}
+	result = append(result, currentWord)
+
+	// Capitalize each word
+	for i, word := range result {
+		result[i] = strings.Title(strings.ToLower(word))
+	}
+
+	return strings.Join(result, " ")
+}
