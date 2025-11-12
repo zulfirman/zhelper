@@ -395,3 +395,11 @@ func FormatColumnName(s string) string {
 
 	return strings.Join(result, " ")
 }
+
+// ValueOrDefault get the value of *variable in safety way and provide the default value
+func ValueOrDefault[T any](p *T, def T) T {
+	if p == nil {
+		return def
+	}
+	return *p
+}
