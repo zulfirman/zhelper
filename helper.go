@@ -3,21 +3,23 @@ package zhelper
 import (
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
-	"github.com/go-resty/resty/v2"
-	"github.com/labstack/echo/v4"
-	"github.com/rs/xid"
-	"github.com/thedevsaddam/gojsonq/v2"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
-	"log"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/bytedance/sonic"
+	"github.com/go-resty/resty/v2"
+	"github.com/labstack/echo/v4"
+	"github.com/rs/xid"
+	"github.com/rs/zerolog/log"
+	"github.com/thedevsaddam/gojsonq/v2"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 var (
@@ -37,6 +39,12 @@ func Rs(c echo.Context, result Response) error {
 	}
 	result.Status = http.StatusText(result.Code)
 	result.Path = Substr(c.Request().RequestURI, 150)
+	if slices.Contains([]int{500}, result.Code) {
+		marshal, _ := sonic.Marshal(&result.Content)
+		log.Error().
+			Str("content", string(marshal)).
+			Msg(http.StatusText(result.Code))
+	}
 	return c.JSON(result.Code, result)
 }
 
@@ -47,6 +55,12 @@ func RsMessage(c echo.Context, code int, message interface{}) error {
 		Content: H{
 			"message": message,
 		},
+	}
+	if slices.Contains([]int{500}, result.Code) {
+		marshal, _ := sonic.Marshal(&result.Content)
+		log.Error().
+			Str("content", string(marshal)).
+			Msg(http.StatusText(result.Code))
 	}
 	return Rs(c, result)
 }
@@ -227,13 +241,6 @@ func BlankString(s string) bool {
 	return strings.TrimSpace(s) == "" || strings.HasPrefix(s, " ")
 }
 
-// FailOnError logs a fatal error message
-func FailOnError(err error, msg string) {
-	if err != nil {
-		log.Panicf("%s: %s", msg, err)
-	}
-}
-
 // GetParamPagination extracts pagination parameters from query
 func GetParamPagination(c echo.Context) Pagination {
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
@@ -349,7 +356,6 @@ func ToSnakeCase(camel string) string {
 	}
 	return string(result)
 }
-
 
 // BuildSearchQuery generates a SQL fragment with OR conditions for searching across multiple columns
 func BuildSearchQuery(columns []string, search string) (string, []interface{}) {
