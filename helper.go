@@ -56,12 +56,6 @@ func RsMessage(c echo.Context, code int, message interface{}) error {
 			"message": message,
 		},
 	}
-	if slices.Contains([]int{500}, result.Code) {
-		marshal, _ := sonic.Marshal(&result.Content)
-		log.Error().
-			Str("content", string(marshal)).
-			Msg(http.StatusText(result.Code))
-	}
 	return Rs(c, result)
 }
 
