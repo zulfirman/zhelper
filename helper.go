@@ -14,7 +14,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
 	"github.com/thedevsaddam/gojsonq/v2"
@@ -33,7 +33,7 @@ var (
 type H map[string]interface{}
 
 // Rs handles JSON responses with a status code and path
-func Rs(c echo.Context, result Response) error {
+func Rs(c *echo.Context, result Response) error {
 	if result.Code == 0 {
 		result.Code = 200
 	}
@@ -49,7 +49,7 @@ func Rs(c echo.Context, result Response) error {
 }
 
 // RsMessage returns a response with a custom message and code
-func RsMessage(c echo.Context, code int, message interface{}) error {
+func RsMessage(c *echo.Context, code int, message interface{}) error {
 	result := Response{
 		Code: code,
 		Content: H{
@@ -60,12 +60,12 @@ func RsMessage(c echo.Context, code int, message interface{}) error {
 }
 
 // RsSuccess returns a generic success message
-func RsSuccess(c echo.Context) error {
+func RsSuccess(c *echo.Context) error {
 	return RsMessage(c, 200, "success")
 }
 
 // RsError returns a response with error details
-func RsError(c echo.Context, code int, message interface{}) error {
+func RsError(c *echo.Context, code int, message interface{}) error {
 	return RsMessage(c, code, message)
 }
 
@@ -76,7 +76,7 @@ func KeyExists(decoded map[string]interface{}, key string) bool {
 }
 
 // ReadyBodyJson binds JSON data from request body to map
-func ReadyBodyJson(c echo.Context, json map[string]interface{}) map[string]interface{} {
+func ReadyBodyJson(c *echo.Context, json map[string]interface{}) map[string]interface{} {
 	if err := c.Bind(&json); err != nil {
 		return nil
 	}
@@ -236,7 +236,7 @@ func BlankString(s string) bool {
 }
 
 // GetParamPagination extracts pagination parameters from query
-func GetParamPagination(c echo.Context) Pagination {
+func GetParamPagination(c *echo.Context) Pagination {
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	sort := c.QueryParam("sort")
